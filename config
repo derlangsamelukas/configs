@@ -1,0 +1,131 @@
+(in-package :stumpwm)
+(asdf:load-system :cl-ppcre)
+
+(defcommand poweroff (yes-or-no)
+  ((:y-or-n "Really Poweroff?"))
+  (when yes-or-no
+    (run-shell-command "poweroff")))
+
+;; mode line functions
+;; (defun volume-level ()
+;;   (run-shell-command "amixer sget Master" t)
+;;   (let ((volume "23")) ;;(cl-ppcre:scan-to-strings "[0-9]?[0-9][0-9]%" ))
+;;     ;;(concatenate 'string "( " volume " )")
+;;     " hi "
+;;     ))
+
+(defun desktop-name ()
+  "function for the mode line: shows the group(desktop) name in the corresponding color"
+  (format nil "^(:fg \"~A\")~A^n" (group-name (current-group)) (group-name (current-group))))
+
+(defun today ()
+  "function for the mode line: shows the current time nice and neat"
+  (remove #\Newline (run-shell-command "date '+^(:fg \"white\")%A^n der %d %B %Y ^(:fg \"white\")%H:%M^n'" t)))
+
+(defun battery-status ()
+  "function for the mode line: shows the battery status with a color for charging or discharging"
+  (let* ((acpi-output (run-shell-command "acpi" t))
+         (battery-percentage (cl-ppcre:scan-to-strings "[0-9]?[0-9]?[0-9]%" acpi-output))
+         (battery-integer (parse-integer (subseq battery-percentage
+                                                  0
+                                                  (1- (length battery-percentage)))))
+         (critical-percentage 10))
+    (concatenate 'string
+                 " "
+                 (cond
+                   ((cl-ppcre:scan-to-strings "Charging" acpi-output)
+                    "^(:fg \"green\")")
+                   ((cl-ppcre:scan-to-strings "Discharging" acpi-output)
+                    (if (>= critical-percentage
+                           battery-integer)
+                        "^(:fg \"red\")"
+                        "^(:fg \"orange\")"))
+                   (t
+                    ""))
+                 battery-percentage)))
+
+(set-prefix-key (kbd "s-x"))
+
+(toggle-mode-line (current-screen) (current-head))
+
+(undefine-key *root-map* (kbd "c"))
+
+(run-shell-command "~/.config/stumpwm/startup.sh")
+
+;;(define-key *root-map* (kbd "s-o") "exec xterm")
+
+;; keys defined in *root-map* are accessed with the prefix key
+(define-key *root-map* (kbd "1") "only")
+(define-key *root-map* (kbd "3") "hsplit")
+(define-key *root-map* (kbd "2") "vsplit")
+(define-key *root-map* (kbd "s-c") "poweroff")
+(define-key *root-map* (kbd "e") "exec /home/lukas/Programming/C/emacs/src/emacs")
+
+;; keys defined in *top-map* don't need a prefix key
+(define-key *top-map* (kbd "s-v") "vsplit")
+(define-key *top-map* (kbd "s-h") "hsplit")
+(define-key *top-map* (kbd "s-l") "exec xscreensaver-command --lock")
+(define-key *top-map* (kbd "s-DEL") "remove-split")
+(define-key *top-map* (kbd "s-t") "exec urxvt")
+(define-key *top-map* (kbd "s-Return") "exec urxvt")
+(define-key *top-map* (kbd "s-Down") "move-focus down")
+(define-key *top-map* (kbd "s-Up") "move-focus up")
+(define-key *top-map* (kbd "s-Left") "move-focus left")
+(define-key *top-map* (kbd "s-Right") "move-focus Right")
+(define-key *top-map* (kbd "s-q") "delete-window")
+(define-key *top-map* (kbd "M-Tab") "pull-hidden-next")
+(define-key *top-map* (kbd "C-M-Left") "gprev")
+(define-key *top-map* (kbd "C-M-Right") "gnext")
+;; (define-key *top-map* (kbd "s-e") "emacs")
+(define-key *top-map* (kbd "s-e") "exec rofi -show run")
+(define-key *top-map* (kbd "s-d") "run-shell-command")
+(define-key *top-map* (kbd "XF86MonBrightnessUp") "exec xbacklight -inc 5")
+(define-key *top-map* (kbd "XF86MonBrightnessDown") "exec xbacklight -dec 5")
+(define-key *top-map* (kbd "XF86AudioRaiseVolume") "exec amixer -D pulse sset Master 5%+")
+(define-key *top-map* (kbd "XF86AudioLowerVolume") "exec amixer -D pulse sset Master 5%-")
+(define-key *top-map* (kbd "XF86AudioMute") "exec amixer set Master toggle")
+(define-key *top-map* (kbd "s-S-Right") "gnext-with-window")
+(define-key *top-map* (kbd "s-S-Left") "gprev-with-window")
+
+(grename "Red")
+(gnewbg "Green")
+(gnewbg "Blue")
+(gnewbg "Yellow")
+
+;; (gnext)
+
+
+;; "[%n] %W" <-- default mode line format
+*screen-mode-line-format*
+(setf *screen-mode-line-format*
+      '((:eval (desktop-name))
+        " %W ^>"
+        (:eval (today))
+        ;; (:eval (volume-level))
+        (:eval (battery-status))))
+
+(setf *mode-line-timeout* 60);; seconds
+(mode-line)
+
+;; (asdf:load-system :usocket)
+;; (usocket:socket-listen "localhost" 4040 :reuse-address t)
+;; (usocket:socket-accept )
+
+;; (let* ((s (usocket:socket-listen "localhost" 4043 :reuse-address t))
+;;        (c (usocket:socket-accept s)))
+;;   (usocket:wait-for-input c)
+;;   (print (read-char (usocket:socket-stream c)))
+;;   (print (read-char (usocket:socket-stream c)))
+;;   (print (read-char (usocket:socket-stream c)))
+;;   (print (read-char (usocket:socket-stream c)))
+;;   (usocket:socket-close c)
+;;   (usocket:socket-close s))
+
+;; (setf (getenv "SBL_HOME") "")
+
+;; (let ((quicklisp-init (merge-pathnames "quicklisp/setup.lisp" (user-homedir-pathname))))
+;;   (when (probe-file quicklisp-init)
+;;     (load quicklisp-init)))
+
+;;(ql:quickload "swank")
+;;(swank:create-server :port #<choose a port number>)
